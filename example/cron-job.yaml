@@ -1,0 +1,50 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: gke-node-optimizer
+  namespace: default
+  labels:
+    name: gke-node-optimizer
+spec:
+  schedule: "*/30 * * * *" # Every 30 minutes
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 0
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 0 # No retry when failed
+      template:
+        metadata:
+          labels:
+            name: gke-node-optimizer
+        spec:
+          priorityClassName: high-priority
+          affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                  - matchExpressions:
+                    - key: cloud.google.com/gke-nodepool
+                      operator: In
+                      values:
+                        - not-applicable-optimize-pool-blue  # FIXME: Specify the always running nodepool name
+          restartPolicy: Never
+          containers:
+            - name: gke-node-optimizer # https://github.com/na-ga/gke-node-optimizer
+              image: naaga/gke-node-optimizer:v0.1.0
+              imagePullPolicy: IfNotPresent # Pulled only if not already present locally
+              env:
+                - name: PROJECT_ID
+                  value: "required" # FIXME: Specify the GCP projectId
+                - name: CLUSTER_NAME
+                  value: "required" # FIXME: Specify the GKE cluster name
+                - name: CLUSTER_LOCATION
+                  value: "required" # FIXME: Specify the GKE cluster location
+                - name: OPTIMIZE_PREEMPTIBLE_NODE
+                  value: "optional" # FIXME: Specify the true when optimize preemptible node
+                - name: OPTIMIZE_AUTOSCALE_ONDEMAND_NODE
+                  value: "optional" # FIXME: Specify the true when optimize ondemand autoscale node
+                - name: SLACK_BOT_TOKEN
+                  value: "optional" # FIXME: Specify the slack bot token or empty string
+                - name: SLACK_CHANNEL_ID
+                  value: "optional" # FIXME: Specify the slack channelId or empty string

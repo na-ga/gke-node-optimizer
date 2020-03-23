@@ -1,0 +1,37 @@
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: high-priority
+value: 100
+globalDefault: false
+description: "This priority class should be used for high priority service pods only."
+
+---
+
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: middle-priority
+value: 50
+globalDefault: false
+description: "This priority class should be used for middle priority service pods only."
+
+---
+
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: default-priority
+value: 25
+globalDefault: true
+description: "This priority class will be used as the default value for all service pods."
+
+---
+
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: low-priority
+value: 0
+globalDefault: false
+description: "This priority class should be used for low priority service pods only."
