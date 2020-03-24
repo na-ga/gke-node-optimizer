@@ -201,7 +201,7 @@ spec:
             nodeSelectorTerms:
               - matchExpressions:
                   - key: cloud.google.com/gke-nodepool
-                    operator: In
+                    operator: NotIn
                     values:
                       - preemptible-pool
           preferredDuringSchedulingIgnoredDuringExecution:
