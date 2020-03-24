@@ -41,27 +41,35 @@ The example below assumes that the total number of resource requests for all pod
 
 Create regional GKE clusters with three types of node pools.
 
-1. `default-pool`: node pool that three on-demand instances are always running
-1. `ondemand-pool`: node pool that on-demand instances are running between 5 and 6 per zone by autoscaler
-1. `preemptible-pool`: node pool that on-demand instances are running between 0 and 6 per zone by autoscaler
+1. `default-pool`: node pool that on-demand instances are always running with 1 node per zone
+1. `preemptible-pool`: node pool that preemptible instances are running between 5 and 6 nodes per zone by autoscaler
+1. `ondemand-pool`: node pool that on-demand instances are running between 0 and 6 nodes per zone by autoscaler
 
 These node pools are used for the following purposes.
 
-1. `default-pool`: used by non-fault-tolerant pods or high important pods
+1. `default-pool`: used by non-fault-tolerant pods or important pods
+1. `preemptive-pools`: used for fault-tolerant pods or not important pods
 1. `ondemand-pool`: used when `preemptible-pool` is not available
-1. `preemptive pools`: used for fault-tolerant pods or less important pods
 
-The `preemptible-pool` and `ondemand-pool` require a maximum of 5 nodes per zone.
-However, set the maximum of 6 nodes per zone because the target nodes are temporarily unavailable during the optimization process.
-Normally, the 3 nodes are managed by the `default-pool` and the remaining 15 nodes are managed by the `preemptible-pool`.
-To create regional GKE cluster and node pools, you can use the following commands:
+To create regional GKE cluster and `default-pool` node pool with 1 node per zone, you can use the following command:
 
 ```shell script
 $ gcloud config set project my-project
 $ gcloud container clusters create my-cluster --region=asia-east1 --num-nodes=1 --enable-ip-alias
-$ gcloud container node-pools create ondemand-pool --cluster my-cluster --region=asia-east1 --enable-autoscaling --min-nodes=0 --max-nodes=6
-$ gcloud container node-pools create preemptible-pool --cluster my-cluster --region=asia-east1 --enable-autoscaling --min-nodes=5 --max-nodes=6 --preemptible
 ```
+
+The `preemptible-pool` and `ondemand-pool` node pools require a maximum of 5 nodes per zone.
+However, since the target nodes are temporarily unavailable during the optimization process, configure the maximum number of nodes to 6 nodes per zone. 
+To create the `preemptible-pool` and `ondemand-pool` node pools, you can use the following command:
+
+```shell script
+$ gcloud container node-pools create preemptible-pool --cluster my-cluster --region=asia-east1 --enable-autoscaling --min-nodes=5 --max-nodes=6 --preemptible
+$ gcloud container node-pools create ondemand-pool --cluster my-cluster --region=asia-east1 --enable-autoscaling --min-nodes=0 --max-nodes=6
+```
+
+Immediately after creating the node pool, excess nodes are started, but are automatically adjusted by the autoscaler.
+Although the number of nodes may temporarily increase during the optimization process.
+Normally, the 3 nodes managed by `default-pool` and 15 nodes managed by `preemptible-pool` are running.
 
 ### Priority Class Settings
 
@@ -156,7 +164,7 @@ spec:
               memory: "128Mi"
 ```
 
-Next, configure priority class and node affinity so that fault-tolerant pods that can be force shutdown, or less important pods, are scheduled in the `preemptive-pool`.
+Next, configure priority class and node affinity so that fault-tolerant pods that can be force shutdown, or not important pods, are scheduled in the `preemptive-pool`.
 The following is a sample when setting to Deployment.
 
 ```yaml
@@ -164,7 +172,7 @@ kind: Deployment
 spec:
   template:
     spec:
-      priorityClassName: low-priority # if less important pods
+      priorityClassName: low-priority # if not important pods
       affinity:
         nodeAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
@@ -206,7 +214,7 @@ spec:
                       - default-pool
 ```
 
-Finally, configure priority class and node affinity so that non-fault-tolerant pods, or high important pods, are scheduled in the `default-pool`.
+Finally, configure priority class and node affinity so that non-fault-tolerant pods, or important pods, are scheduled in the `default-pool`.
 To reduce the number of on-demand nodes, avoid this setting as much as possible.
 The following is an example of the Deployment settings.
 
