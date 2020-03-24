@@ -8,6 +8,7 @@ GODEP ?= godep
 GOLINT ?= golint
 MOCKGEN ?= mockgen
 DOCKER ?= docker
+KUBECTL ?= kubectl
 
 .PHONY: build
 build: BUILD_DIR ?= ./build
@@ -39,12 +40,14 @@ docker-push: docker-build
 
 .PHONY: run-gke
 run-gke: JOB_VERSION ?= $(shell date +"%Y%m%d%H%M%S")
+run-gke: NAMESPACE ?= default
 run-gke: cleanup-gke
-	kubectl -n ops create job $(NAME)-spot-$(JOB_VERSION) --from=cronjob/$(NAME)
+	$(KUBECTL) -n $(NAMESPACE) create job $(NAME)-spot-$(JOB_VERSION) --from=cronjob/$(NAME)
 
 .PHONY: cleanup-gke
+cleanup-gke: NAMESPACE ?= default
 cleanup-gke:
-	kubectl -n ops delete job -l name=$(NAME)
+	$(KUBECTL) -n $(NAMESPACE) delete job -l name=$(NAME)
 
 .PHONY: mockgen
 mockgen:
