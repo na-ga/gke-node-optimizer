@@ -241,7 +241,7 @@ Run this Cli tool using CronJob.
 The example configuration uses up to 18 preemptive nodes, so you can reset the 24-hour counter in advance by running at 18/24 hour intervals.
 To create a CronJob that runs every hour, you can use the following command:
 
-```yaml
+```shell script
 $ cat << EOS > | kubectl apply -f -
 apiVersion: batch/v1beta1
 kind: CronJob
