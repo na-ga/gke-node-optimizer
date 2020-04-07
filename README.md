@@ -1,6 +1,7 @@
 # gke-node-optimizer
 
-[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat)](http://makeapullrequest.com) 
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg?style=flat)](http://makeapullrequest.com)
+[![MIT Licensed](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/na-ga/gke-node-optimizer/blob/master/LICENSE)
 
 A CLI tool optimizes preemptive and on-demand nodes in a gke cluster to make the best use of preemptive nodes.
 
@@ -310,3 +311,7 @@ Compute Engine sends a preemption notice to the instance in the form of an ACPI 
 You can use a shutdown script to handle the preemption notice and pass the signal to the pods before the instance stops.
 If you are using COS, you can use a startup script to set kubectl and credentials, and then use a shutdown script to drain node.
 Although omitted in this example, it is necessary to change the instance template and apply it to the node pool.
+
+## LICENSE
+
+gke-node-optimizer is released under the MIT license. See LICENSE file for details.
