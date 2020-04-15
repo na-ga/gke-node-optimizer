@@ -5,7 +5,7 @@ go 1.14
 require (
 	cloud.google.com/go v0.56.0
 	github.com/golang/protobuf v1.4.0 // indirect
-	github.com/googleapis/gnostic v0.4.1 // indirect
+	github.com/googleapis/gnostic v0.3.1
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/imdario/mergo v0.3.9 // indirect
 	github.com/json-iterator/go v1.1.9 // indirect
