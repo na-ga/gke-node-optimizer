@@ -44,13 +44,13 @@ type Client interface {
 	// GetNodePoolList returns the node pool list by the owned cluster.
 	GetNodePoolList(ctx context.Context) ([]*NodePool, error)
 	// GetNode returns the node by the node name.
-	GetNode(nodeName string) (*Node, error)
+	GetNode(ctx context.Context, nodeName string) (*Node, error)
 	// GetNodeList returns the nodes into the owned cluster.
-	GetNodeList() ([]*Node, error)
+	GetNodeList(ctx context.Context) ([]*Node, error)
 	// GetPod returns the pod by the pod name.
-	GetPod(podName string) (*Pod, error)
+	GetPod(ctx context.Context, podName string) (*Pod, error)
 	// GetPodListByNodeName returns the pod list by the node name.
-	GetPodListByNodeName(nodeName string) ([]*Pod, error)
+	GetPodListByNodeName(ctx context.Context, nodeName string) ([]*Pod, error)
 	// RefreshNode drains node and deletes node if preemptible.
 	RefreshNode(ctx context.Context, nodeName string) (evictedPods []*Pod, err error)
 	// RefreshNodes drains nodes and deletes nodes if preemptible.
@@ -190,13 +190,13 @@ func (cli *client) GetNodePoolList(ctx context.Context) ([]*NodePool, error) {
 }
 
 //
-func (cli *client) GetNode(nodeName string) (*Node, error) {
-	res, err := cli.kubernetesClient.CoreV1().Nodes().Get(nodeName, metaV1.GetOptions{})
+func (cli *client) GetNode(ctx context.Context, nodeName string) (*Node, error) {
+	res, err := cli.kubernetesClient.CoreV1().Nodes().Get(ctx, nodeName, metaV1.GetOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get node list: %s", err)
 	}
 	node := cli.toNode(*res)
-	pods, err := cli.GetPodListByNodeName(node.Name)
+	pods, err := cli.GetPodListByNodeName(ctx, node.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get pods on node %s: %s", node.Name, err)
 	}
@@ -205,14 +205,14 @@ func (cli *client) GetNode(nodeName string) (*Node, error) {
 }
 
 //
-func (cli *client) GetNodeList() ([]*Node, error) {
-	nl, err := cli.kubernetesClient.CoreV1().Nodes().List(metaV1.ListOptions{})
+func (cli *client) GetNodeList(ctx context.Context) ([]*Node, error) {
+	nl, err := cli.kubernetesClient.CoreV1().Nodes().List(ctx, metaV1.ListOptions{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get node list: %s", err)
 	}
 	nodes := cli.toNodes(nl.Items)
 	for _, v := range nodes {
-		pods, err := cli.GetPodListByNodeName(v.Name)
+		pods, err := cli.GetPodListByNodeName(ctx, v.Name)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get pods on node %s: %s", v.Name, err)
 		}
@@ -222,8 +222,8 @@ func (cli *client) GetNodeList() ([]*Node, error) {
 }
 
 //
-func (cli *client) GetPod(podName string) (*Pod, error) {
-	pods, err := cli.kubernetesClient.CoreV1().Pods(metaV1.NamespaceAll).List(metaV1.ListOptions{
+func (cli *client) GetPod(ctx context.Context, podName string) (*Pod, error) {
+	pods, err := cli.kubernetesClient.CoreV1().Pods(metaV1.NamespaceAll).List(ctx, metaV1.ListOptions{
 		FieldSelector: fields.SelectorFromSet(fields.Set{"name": podName}).String(),
 	})
 	if err != nil {
@@ -236,8 +236,8 @@ func (cli *client) GetPod(podName string) (*Pod, error) {
 }
 
 //
-func (cli *client) GetPodListByNodeName(nodeName string) ([]*Pod, error) {
-	pods, err := cli.kubernetesClient.CoreV1().Pods(metaV1.NamespaceAll).List(metaV1.ListOptions{
+func (cli *client) GetPodListByNodeName(ctx context.Context, nodeName string) ([]*Pod, error) {
+	pods, err := cli.kubernetesClient.CoreV1().Pods(metaV1.NamespaceAll).List(ctx, metaV1.ListOptions{
 		FieldSelector: fields.SelectorFromSet(fields.Set{"spec.nodeName": nodeName}).String(),
 	})
 	if err != nil {
@@ -248,17 +248,17 @@ func (cli *client) GetPodListByNodeName(nodeName string) ([]*Pod, error) {
 
 //
 func (cli *client) RefreshNode(ctx context.Context, nodeName string) (evictedPods []*Pod, err error) {
-	node, err := cli.GetNode(nodeName)
+	node, err := cli.GetNode(ctx, nodeName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get node %s: %s", nodeName, err)
 	}
-	if err := cli.cordonNode(node.Name); err != nil {
+	if err := cli.cordonNode(ctx, node.Name); err != nil {
 		return nil, fmt.Errorf("failed to cordon node %s: %s", node.Name, err)
 	}
 	cordonNode := node
 	defer func() {
 		if cordonNode != nil {
-			if e := cli.uncordonNode(cordonNode.Name); e != nil {
+			if e := cli.uncordonNode(ctx, cordonNode.Name); e != nil {
 				if err == nil {
 					err = fmt.Errorf("failed to uncordon node %s: %s", cordonNode.Name, e)
 				} else {
@@ -267,7 +267,7 @@ func (cli *client) RefreshNode(ctx context.Context, nodeName string) (evictedPod
 			}
 		}
 	}()
-	evictedPods, err = cli.drainNode(node)
+	evictedPods, err = cli.drainNode(ctx, node)
 	if err != nil {
 		return nil, fmt.Errorf("failed to drain node %s: %s", node.Name, err)
 	}
@@ -285,7 +285,7 @@ func (cli *client) RefreshNode(ctx context.Context, nodeName string) (evictedPod
 func (cli *client) RefreshNodes(ctx context.Context, nodeNames []string) (evictedPods []*Pod, err error) {
 	nodes := make([]*Node, 0, len(nodeNames))
 	for _, v := range nodeNames {
-		node, err := cli.GetNode(v)
+		node, err := cli.GetNode(ctx, v)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get node %s: %s", v, err)
 		}
@@ -294,7 +294,7 @@ func (cli *client) RefreshNodes(ctx context.Context, nodeNames []string) (evicte
 	cordonNodes := make(map[string]*Node, len(nodes))
 	defer func() {
 		for _, node := range cordonNodes {
-			if e := cli.uncordonNode(node.Name); e != nil {
+			if e := cli.uncordonNode(ctx, node.Name); e != nil {
 				if err == nil {
 					err = fmt.Errorf("failed to uncordon node %s: %s", node.Name, e)
 				} else {
@@ -304,7 +304,7 @@ func (cli *client) RefreshNodes(ctx context.Context, nodeNames []string) (evicte
 		}
 	}()
 	for _, node := range nodes {
-		if err := cli.cordonNode(node.Name); err != nil {
+		if err := cli.cordonNode(ctx, node.Name); err != nil {
 			return nil, fmt.Errorf("failed to cordon node %s: %s", node.Name, err)
 		}
 		cordonNodes[node.Name] = node
@@ -315,7 +315,7 @@ func (cli *client) RefreshNodes(ctx context.Context, nodeNames []string) (evicte
 			log.Infof("Waiting 1 minute for evicted pods on %s to running.", nodes[i-1].Name)
 			time.Sleep(time.Minute)
 		}
-		pods, err := cli.drainNode(node)
+		pods, err := cli.drainNode(ctx, node)
 		evictedPods = append(evictedPods, pods...)
 		if err != nil {
 			return evictedPods, fmt.Errorf("failed to drain node %s: %s", node.Name, err)
@@ -438,12 +438,12 @@ func (cli *client) toPod(in coreV1.Pod) *Pod {
 }
 
 //
-func (cli *client) drainNode(node *Node) ([]*Pod, error) {
+func (cli *client) drainNode(ctx context.Context, node *Node) ([]*Pod, error) {
 	policy, err := cli.policyVersion()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get policy version of node %s: %s", node.Name, err)
 	}
-	return cli.evictPods(node, policy)
+	return cli.evictPods(ctx, node, policy)
 }
 
 //
@@ -479,22 +479,22 @@ func (cli *client) policyVersion() (string, error) {
 }
 
 //
-func (cli *client) cordonNode(nodeName string) error {
-	return cli.applyCordonOrUncordon(nodeName, true)
+func (cli *client) cordonNode(ctx context.Context, nodeName string) error {
+	return cli.applyCordonOrUncordon(ctx, nodeName, true)
 }
 
 //
-func (cli *client) uncordonNode(nodeName string) error {
-	return cli.applyCordonOrUncordon(nodeName, false)
+func (cli *client) uncordonNode(ctx context.Context, nodeName string) error {
+	return cli.applyCordonOrUncordon(ctx, nodeName, false)
 }
 
 //
-func (cli *client) applyCordonOrUncordon(nodeName string, cordon bool) error {
+func (cli *client) applyCordonOrUncordon(ctx context.Context, nodeName string, cordon bool) error {
 	status := "cordon"
 	if !cordon {
 		status = "uncordon"
 	}
-	n, err := cli.kubernetesClient.CoreV1().Nodes().Get(nodeName, metaV1.GetOptions{})
+	n, err := cli.kubernetesClient.CoreV1().Nodes().Get(ctx, nodeName, metaV1.GetOptions{})
 	if err != nil {
 		return err
 	}
@@ -503,7 +503,7 @@ func (cli *client) applyCordonOrUncordon(nodeName string, cordon bool) error {
 		return nil // returns not error
 	}
 	n.Spec.Unschedulable = cordon
-	if _, err = cli.kubernetesClient.CoreV1().Nodes().Update(n); err != nil {
+	if _, err = cli.kubernetesClient.CoreV1().Nodes().Update(ctx, n, metaV1.UpdateOptions{}); err != nil {
 		return err
 	}
 	log.Infof("Succeeded in %s node: %s", status, nodeName)
@@ -511,7 +511,7 @@ func (cli *client) applyCordonOrUncordon(nodeName string, cordon bool) error {
 }
 
 //
-func (cli *client) evictPods(node *Node, policy string) ([]*Pod, error) {
+func (cli *client) evictPods(ctx context.Context, node *Node, policy string) ([]*Pod, error) {
 	evicted := make([]*Pod, 0, len(node.Pods))
 	for _, pod := range node.Pods {
 		eviction := &policyV1beta1.Eviction{
@@ -525,7 +525,7 @@ func (cli *client) evictPods(node *Node, policy string) ([]*Pod, error) {
 			},
 		}
 		for i := 1; true; i++ {
-			err := cli.kubernetesClient.PolicyV1beta1().Evictions(eviction.Namespace).Evict(eviction)
+			err := cli.kubernetesClient.PolicyV1beta1().Evictions(eviction.Namespace).Evict(ctx, eviction)
 			if err == nil {
 				break
 			}
@@ -546,14 +546,14 @@ func (cli *client) evictPods(node *Node, policy string) ([]*Pod, error) {
 
 //
 func (cli *client) deleteNode(ctx context.Context, node *Node) error {
-	n, err := cli.kubernetesClient.CoreV1().Nodes().Get(node.Name, metaV1.GetOptions{})
+	n, err := cli.kubernetesClient.CoreV1().Nodes().Get(ctx, node.Name, metaV1.GetOptions{})
 	if err != nil {
 		return fmt.Errorf("falid to get node %s: %s", node.Name, err)
 	}
 	if !n.Spec.Unschedulable {
 		return fmt.Errorf("detect schedulable flag, aborting deleteNode node %s: %s", node.Name, err)
 	}
-	if err := cli.kubernetesClient.CoreV1().Nodes().Delete(node.Name, &metaV1.DeleteOptions{}); err != nil {
+	if err := cli.kubernetesClient.CoreV1().Nodes().Delete(ctx, node.Name, metaV1.DeleteOptions{}); err != nil {
 		return fmt.Errorf("detect schedulable flag, aborting deleteNode node %s: %s", node.Name, err)
 	}
 	if _, err := cli.computeClient.Instances.Stop(cli.project, node.Zone, node.Name).Context(ctx).Do(); err != nil {

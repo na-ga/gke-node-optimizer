@@ -1,5 +1,5 @@
 # Build in a stock Go builder container
-FROM golang:1.14-alpine as builder
+FROM golang:1.18-alpine as builder
 RUN apk add --no-cache make gcc musl-dev linux-headers git
 ADD . /gke-node-optimizer
 RUN cd /gke-node-optimizer && make build
