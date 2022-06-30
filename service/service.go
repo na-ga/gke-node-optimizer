@@ -68,7 +68,7 @@ func (o *Optimizer) Optimize(ctx context.Context) error {
 	}
 
 	// Check nodes
-	nodes, err := o.client.GetNodeList()
+	nodes, err := o.client.GetNodeList(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to get node list: %s", err.Error())
 	}

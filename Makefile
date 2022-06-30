@@ -31,7 +31,7 @@ test:
 .PHONY: docker-build
 docker-build: DOCKER_TAG ?= latest
 docker-build:
-	$(DOCKER) build -t naaga/$(NAME):$(DOCKER_TAG) .
+	$(DOCKER) build --platform linux/amd64 -t naaga/$(NAME):$(DOCKER_TAG) .
 
 .PHONY: docker-push
 docker-push: DOCKER_TAG ?= latest
