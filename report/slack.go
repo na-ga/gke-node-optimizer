@@ -121,10 +121,14 @@ func (s *slackReporter) Report(result *Result) error {
 	}
 
 	//
-	fields = s.appendField(fields, "Active node pools", activeNodePoolNameLinks)
-	fields = s.appendField(fields, "Active nodes", activeNodeNameLinks)
-	fields = s.appendField(fields, "Refresh target preemptible node", targetPreemptibleNode)
-	fields = s.appendField(fields, "Refresh target ondemand auto scale node", targetOndemandAutoscaleNode)
+	detailFields := make([]slack.AttachmentField, len(fields))
+	copy(detailFields, fields)
+
+	//
+	detailFields = s.appendField(detailFields, "Active node pools", activeNodePoolNameLinks)
+	detailFields = s.appendField(detailFields, "Active nodes", activeNodeNameLinks)
+	detailFields = s.appendField(detailFields, "Refresh target preemptible node", targetPreemptibleNode)
+	detailFields = s.appendField(detailFields, "Refresh target ondemand auto scale node", targetOndemandAutoscaleNode)
 
 	//
 	if message != "" {
@@ -132,9 +136,13 @@ func (s *slackReporter) Report(result *Result) error {
 			Title: "Message",
 			Value: s.WrapTextInCodeBlock(message),
 		})
+		detailFields = append(detailFields, slack.AttachmentField{
+			Title: "Message",
+			Value: s.WrapTextInCodeBlock(message),
+		})
 	}
 
-	//
+	// write summary
 	opts := []slack.MsgOption{
 		slack.MsgOptionAsUser(true),
 		slack.MsgOptionDisableLinkUnfurl(),
@@ -144,7 +152,23 @@ func (s *slackReporter) Report(result *Result) error {
 			Color:  color,
 		}),
 	}
-	_, _, err := s.cli.PostMessage(s.channelID, opts...)
+	_, ts, err := s.cli.PostMessage(s.channelID, opts...)
+	if err != nil {
+		return err
+	}
+
+	// write detail to thread
+	opts = []slack.MsgOption{
+		slack.MsgOptionAsUser(true),
+		slack.MsgOptionDisableLinkUnfurl(),
+		slack.MsgOptionText(fmt.Sprintf("%s (detail)", title), false),
+		slack.MsgOptionTS(ts),
+		slack.MsgOptionAttachments(slack.Attachment{
+			Fields: detailFields,
+			Color:  color,
+		}),
+	}
+	_, _, err = s.cli.PostMessage(s.channelID, opts...)
 	return err
 }
 
