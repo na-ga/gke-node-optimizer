@@ -82,7 +82,6 @@ func (r *Result) GetDetailLinks() string {
 	}
 	return "https://console.cloud.google.com/logs/query;query=resource.type%3D%22k8s_container%22%0A" +
 		"resource.labels.cluster_name%3D%22" + r.Cluster.Name + "%22%0A" +
-		"resource.labels.namespace_name%3D%22ops%22%0A" +
 		"resource.labels.pod_name%3D%22" + r.hostname + "%22%0A" +
 		"timestamp%3E%3D%22" + r.startTime.Format(time.RFC3339) + "%22;summaryFields=:true:32:beginning?project=" + r.projectID
 }

@@ -2,11 +2,14 @@ package report
 
 import (
 	"fmt"
+	"math"
 	"strings"
 	"time"
 
 	"github.com/slack-go/slack"
 )
+
+const bulkMaxLength = 20
 
 //
 type slackReporter struct {
@@ -115,37 +118,31 @@ func (s *slackReporter) Report(result *Result) error {
 			Value: time.Now().In(timeZone).Format(time.RFC3339),
 			Short: true,
 		},
-		{
-			Title: "Active node pools",
-			Value: s.WrapTextsInCodeBlock(activeNodePoolNameLinks),
-		},
-		{
-			Title: "Active nodes",
-			Value: s.WrapTextsInCodeBlock(activeNodeNameLinks),
-		},
 	}
 
 	//
-	if len(targetPreemptibleNode) > 0 {
-		fields = append(fields, slack.AttachmentField{
-			Title: "Refresh target preemptible node",
-			Value: s.WrapTextsInCodeBlock(targetPreemptibleNode),
-		})
-	}
-	if len(targetOndemandAutoscaleNode) > 0 {
-		fields = append(fields, slack.AttachmentField{
-			Title: "Refresh target ondemand auto scale node",
-			Value: s.WrapTextsInCodeBlock(targetOndemandAutoscaleNode),
-		})
-	}
+	detailFields := make([]slack.AttachmentField, len(fields))
+	copy(detailFields, fields)
+
+	//
+	detailFields = s.appendField(detailFields, "Active node pools", activeNodePoolNameLinks)
+	detailFields = s.appendField(detailFields, "Active nodes", activeNodeNameLinks)
+	detailFields = s.appendField(detailFields, "Refresh target preemptible node", targetPreemptibleNode)
+	detailFields = s.appendField(detailFields, "Refresh target ondemand auto scale node", targetOndemandAutoscaleNode)
+
+	//
 	if message != "" {
 		fields = append(fields, slack.AttachmentField{
 			Title: "Message",
 			Value: s.WrapTextInCodeBlock(message),
 		})
+		detailFields = append(detailFields, slack.AttachmentField{
+			Title: "Message",
+			Value: s.WrapTextInCodeBlock(message),
+		})
 	}
 
-	//
+	// write summary
 	opts := []slack.MsgOption{
 		slack.MsgOptionAsUser(true),
 		slack.MsgOptionDisableLinkUnfurl(),
@@ -155,8 +152,60 @@ func (s *slackReporter) Report(result *Result) error {
 			Color:  color,
 		}),
 	}
-	_, _, err := s.cli.PostMessage(s.channelID, opts...)
+	_, ts, err := s.cli.PostMessage(s.channelID, opts...)
+	if err != nil {
+		return err
+	}
+
+	// write detail to thread
+	opts = []slack.MsgOption{
+		slack.MsgOptionAsUser(true),
+		slack.MsgOptionDisableLinkUnfurl(),
+		slack.MsgOptionText(fmt.Sprintf("%s (detail)", title), false),
+		slack.MsgOptionTS(ts),
+		slack.MsgOptionAttachments(slack.Attachment{
+			Fields: detailFields,
+			Color:  color,
+		}),
+	}
+	_, _, err = s.cli.PostMessage(s.channelID, opts...)
 	return err
+}
+
+//
+func (s *slackReporter) appendField(fields []slack.AttachmentField, title string, values []string) []slack.AttachmentField {
+	if len(values) == 0 {
+		return fields
+	}
+	if len(values) < bulkMaxLength {
+		fields = append(fields, slack.AttachmentField{
+			Title: title,
+			Value: s.WrapTextsInCodeBlock(values),
+		})
+		return fields
+	}
+	idx := 1
+	pages := int(math.Ceil(float64(len(values)) / float64(bulkMaxLength)))
+	bulkMessages := make([]string, 0, bulkMaxLength)
+	for _, v := range values {
+		bulkMessages = append(bulkMessages, v)
+		// add field if bulk messages length is equals to bulk post max length.
+		if len(bulkMessages) == bulkMaxLength {
+			fields = append(fields, slack.AttachmentField{
+				Title: fmt.Sprintf("%s (%d/%d)", title, idx, pages),
+				Value: s.WrapTextsInCodeBlock(bulkMessages),
+			})
+			idx++                                           // increment
+			bulkMessages = make([]string, 0, bulkMaxLength) // clear
+		}
+	}
+	if len(bulkMessages) > 0 {
+		fields = append(fields, slack.AttachmentField{
+			Title: fmt.Sprintf("%s (%d/%d)", title, idx, pages),
+			Value: s.WrapTextsInCodeBlock(bulkMessages),
+		})
+	}
+	return fields
 }
 
 // WrapTextInCodeBlock wraps a string into a code-block formatted string

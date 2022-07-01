@@ -4,7 +4,6 @@ GO_ENV ?= CGO_ENABLED=0
 GO_PKGS ?= $(shell go list ./... | grep -v /vendor/)
 
 GO ?= go
-GODEP ?= godep
 GOLINT ?= golint
 MOCKGEN ?= mockgen
 DOCKER ?= docker
@@ -27,6 +26,10 @@ lint:
 .PHONY: test
 test:
 	$(GO_ENV) $(GO) test -v $(GO_PKGS)
+
+.PHONY: vendor
+vendor:
+	$(GO_ENV) $(GO) mod vendor
 
 .PHONY: docker-build
 docker-build: DOCKER_TAG ?= latest

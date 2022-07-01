@@ -33,6 +33,7 @@ const (
 	NodeZoneLabel        = "failure-domain.beta.kubernetes.io/zone"
 	ResourceEvictionKind = "Eviction"
 	ResourceEvictionName = "pods/eviction"
+	NodeNameMaxLength    = 37
 )
 
 //
@@ -383,6 +384,9 @@ func (cli *client) toNode(in coreV1.Node) *Node {
 		return nil
 	}
 	nodeNamePrefix := "gke-" + cli.clusterName + "-" + pool
+	if len(nodeNamePrefix) > NodeNameMaxLength {
+		nodeNamePrefix = nodeNamePrefix[:NodeNameMaxLength]
+	}
 	if cli.clusterName != "" && !strings.HasPrefix(in.Name, nodeNamePrefix) { // n.ClusterName is empty string
 		log.Errorf("Ignore node because unexpected node name prefix: name=%s, prefix=%s", in.Name, nodeNamePrefix)
 		return nil
