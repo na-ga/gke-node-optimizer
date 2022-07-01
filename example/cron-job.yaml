@@ -31,7 +31,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: gke-node-optimizer # https://github.com/na-ga/gke-node-optimizer
-              image: naaga/gke-node-optimizer:v0.1.0
+              image: naaga/gke-node-optimizer:v1.0.0
               imagePullPolicy: IfNotPresent # Pulled only if not already present locally
               env:
                 - name: PROJECT_ID
