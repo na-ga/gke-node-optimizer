@@ -43,12 +43,12 @@ docker-push: docker-build
 
 .PHONY: run-gke
 run-gke: JOB_VERSION ?= $(shell date +"%Y%m%d%H%M%S")
-run-gke: NAMESPACE ?= default
+run-gke: NAMESPACE ?= gke-node-optimizer
 run-gke: cleanup-gke
 	$(KUBECTL) -n $(NAMESPACE) create job $(NAME)-spot-$(JOB_VERSION) --from=cronjob/$(NAME)
 
 .PHONY: cleanup-gke
-cleanup-gke: NAMESPACE ?= default
+cleanup-gke: NAMESPACE ?= gke-node-optimizer
 cleanup-gke:
 	$(KUBECTL) -n $(NAMESPACE) delete job -l name=$(NAME)
 
